@@ -1,44 +1,83 @@
 <?php
 
 use App\Http\Controllers\ProfileController;
-use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\OrderController;
+use App\Http\Controllers\MemberController; // Tambahkan ini jika file sudah dibuat
+use Illuminate\Support\Facades\Route;
+
+/*
+|--------------------------------------------------------------------------
+| Web Routes
+|--------------------------------------------------------------------------
+*/
 
 Route::get('/', function () {
-    // return view('welcome');
     return redirect()->route('login');
 });
 
-Route::get('/dashboard', function () {
-    return view('dashboard');
-})->middleware(['auth', 'verified'])->name('dashboard');
+// Semua route di dalam grup ini WAJIB Login dulu
+Route::middleware(['auth', 'verified'])->group(function () {
 
-Route::get('/manajemen-pesanan', function () {
-    // Nantinya data $orders akan diambil dari database di sini
-    $orders = []; // Sementara kosong
-    return view('manajemen-pesanan', compact('orders'));
-})->middleware(['auth'])->name('pesanan.index');
+    Route::get('/dashboard', function () {
+        return view('cek-customer');
+    })->name('dashboard');
 
-Route::get('/kebutuhan', function () {
-    return view('kebutuhan');
-})->middleware(['auth'])->name('kebutuhan.index');
+    // ==========================================
+    // MODULE: MANAJEMEN PESANAN (Order List)
+    // ==========================================
+    // Menggunakan [OrderController::class, 'index'] agar data diambil dari database
+    Route::get('/manajemen-pesanan', [OrderController::class, 'index'])->name('pesanan.index');
 
-Route::middleware('auth')->group(function () {
+    // ==========================================
+    // MODULE: INPUT ORDER (Alur Baru)
+    // ==========================================
+    
+    // 1. Tampilkan Form Cek Nomor HP (Awal)
+    Route::get('/input-order', function () {
+        return view('cek-customer'); 
+    })->name('order.search');
+
+    // 2. Proses Cek No HP (Controller: check)
+    // PENTING: Nama method adalah 'check', bukan 'checkNumber'
+    Route::post('/order/check', [OrderController::class, 'check'])->name('order.check');
+
+    Route::get('/order/check', function () {
+            return redirect()->route('order.search'); 
+        });
+
+    // 3. Simpan Order Final (Controller: store)
+    Route::post('/orders', [OrderController::class, 'store'])->name('orders.store');
+
+    // ==========================================
+    // MODULE: MEMBER (Pop Up)
+    // ==========================================
+    // Route untuk simpan member dari Pop-Up Modal
+    Route::post('/members', [MemberController::class, 'store'])->name('members.store');
+
+
+    Route::get('/pesanan/{id}', [OrderController::class, 'show'])->name('pesanan.show');
+
+    Route::post('/pesanan/{id}/toggle-wa/{type}', [OrderController::class, 'toggleWa'])->name('pesanan.toggle-wa');
+
+    Route::post('/pesanan/detail/{id}/update', [OrderController::class, 'updateDetail'])->name('pesanan.detail.update');
+
+    Route::post('/check-customer', [OrderController::class, 'checkCustomer'])->name('check.customer');
+
+    
+
+    // ==========================================
+    // LAIN-LAIN
+    // ==========================================
+    Route::get('/kebutuhan', function () {
+        return view('kebutuhan');
+    })->name('kebutuhan.index');
+
+    // Profile Settings
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
-});
 
-
-Route::middleware(['auth'])->group(function () {
-    // Jalur untuk mengecek nomor (Baru/Repeat)
-    Route::post('/order/check', [OrderController::class, 'checkNumber'])->name('order.check');
-    
-    // Jalur untuk menyimpan data order final
-    Route::post('/order/store', [OrderController::class, 'store'])->name('orders.store');
-    
-    // Jalur untuk halaman manajemen pesanan (tabel)
-    Route::get('/manajemen-pesanan', [OrderController::class, 'index'])->name('pesanan.index');
+    Route::patch('/order-details/{id}/status', [OrderDetailController::class, 'updateStatus'])->name('order-details.update-status');
 });
 
 require __DIR__.'/auth.php';

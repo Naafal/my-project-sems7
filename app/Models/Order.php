@@ -2,43 +2,22 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Order extends Model
 {
-    use HasFactory;
+    protected $guarded = [];
 
-    /**
-     * Nama tabel yang terkait dengan model ini.
-     */
-    protected $table = 'orders';
+    // Order dimiliki oleh 1 Customer
+    public function customer()
+    {
+        return $this->belongsTo(Customer::class);
+    }
 
-    /**
-     * Atribut yang dapat diisi secara massal.
-     * Sesuaikan dengan kolom yang Anda buat di Migration.
-     */
-    protected $fillable = [
-        'no_hp',
-        'nama_customer',
-        'jumlah',
-        'cs',
-        'item',
-        'kategori_treatment',
-        'tanggal_keluar',
-        'harga',
-        'catatan',
-        'pembayaran',
-        'tipe_customer', // Untuk menyimpan status 'Baru' atau 'Repeat'
-        'sumber_info'
-    ];
-
-    /**
-     * Casting tipe data jika diperlukan.
-     */
-    protected $casts = [
-        'tanggal_keluar' => 'date',
-        'harga' => 'integer',
-        'jumlah' => 'integer',
-    ];
+    // Order punya BANYAK Detail Sepatu
+    // Perhatikan: parameter kedua 'order_id' memastikan dia nyambung ke tabel order_details
+    public function details()
+    {
+        return $this->hasMany(OrderDetail::class, 'order_id');
+    }
 }

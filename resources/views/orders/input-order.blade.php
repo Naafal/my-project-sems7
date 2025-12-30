@@ -1,150 +1,65 @@
 <x-app-layout>
     <div class="p-6 bg-white min-h-screen">
-        <div class="flex items-center mb-10">
-            <button class="mr-4 p-2 bg-gray-200 rounded-lg">
-                <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
-            </button>
-            <h1 class="text-4xl font-bold text-[#7FB3D5]">
-                Input Order <span class="{{ $color }} ml-4 text-2xl">{{ $status }}</span>
-            </h1>
+        
+        <div class="flex flex-col md:flex-row md:items-center justify-between mb-8 border-b pb-4">
+            <div class="flex items-center">
+                <h1 class="text-3xl font-bold text-[#7FB3D5] mr-4">Input Order</h1>
+                
+                <span class="px-4 py-2 rounded-lg font-bold border {{ $color }} shadow-sm text-sm uppercase tracking-wide">
+                    {{ $status }}
+                </span>
+            </div>
+
+            @if($is_member)
+                <div class="mt-4 md:mt-0 flex items-center bg-yellow-50 px-4 py-2 rounded-xl border border-yellow-200 text-yellow-700">
+                    <svg class="w-6 h-6 mr-2" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path></svg>
+                    <div>
+                        <p class="text-xs font-bold uppercase opacity-70">Loyalty Points</p>
+                        <p class="text-xl font-black">{{ number_format($poin) }} pts</p>
+                    </div>
+                </div>
+            @endif
         </div>
 
         <form action="{{ route('orders.store') }}" method="POST">
             @csrf
-            <input type="hidden" name="tipe_customer" value="{{ $status }}">
+            <input type="hidden" name="tipe_customer" value="{{ $is_member ? 'Member' : ($status == 'New Customer' ? 'Baru' : 'Repeat') }}">
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                
                 <div class="bg-gray-200 rounded-xl p-4">
                     <label class="block text-xs text-gray-500 font-bold mb-1">Nama Customer</label>
-                    <input type="text" name="nama_customer" value="{{ $nama }}" class="w-full bg-transparent border-none p-0 focus:ring-0 text-gray-800 placeholder-gray-400" placeholder="Masukkan Nama">
-                </div>
-
-                <div class="bg-gray-200 rounded-xl p-4 flex">
-                    <div class="border-r border-gray-400 pr-4 mr-4 flex items-center">
-                        <label class="text-xs text-gray-500 font-bold">No HP</label>
-                    </div>
-                    <input type="text" name="no_hp" value="{{ $no_hp }}" class="w-full bg-transparent border-none p-0 focus:ring-0 text-gray-800">
-                </div>
-
-                <div class="bg-gray-200 rounded-xl p-4 flex justify-between items-center">
-                    <label class="text-xs text-gray-500 font-bold">Jumlah Item</label>
-                    <div class="flex items-center space-x-6">
-                        <button type="button" onclick="removeItem()" class="text-xl font-bold text-gray-600 hover:text-red-500">-</button>
-                        
-                        <span id="counter-display" class="font-bold text-lg">1</span>
-                        
-                        <button type="button" onclick="addItem()" class="text-xl font-bold text-gray-600 hover:text-blue-500">+</button>
-                    </div>
-                </div>
-
-                <div class="bg-gray-200 rounded-xl p-4 relative">
-                    <label class="block text-xs text-gray-500 font-bold mb-1">Cs</label>
-                    <select name="cs" class="w-full bg-transparent border-none p-0 focus:ring-0 text-gray-800 appearance-none">
-                        <option value="Admin 1">Admin 1</option>
-                        <option value="Admin 2">Admin 2</option>
-                    </select>
-                </div>
-
-                <div id="items-container" class="col-span-1 md:col-span-2 space-y-4">
-                    
-                    <div class="item-row grid grid-cols-2 md:grid-cols-5 gap-4 bg-white p-2 rounded-xl border border-gray-100 shadow-sm">
-                        
-                        <div class="bg-gray-200 rounded-xl p-3">
-                            <label class="block text-xs text-gray-500 font-bold mb-1">Item</label>
-                            <input type="text" name="item[]" class="w-full bg-transparent border-none p-0 focus:ring-0 text-sm" placeholder="Nama Barang">
-                        </div>
-                        
-                        <div class="bg-gray-200 rounded-xl p-3">
-                            <label class="block text-xs text-gray-500 font-bold mb-1">Kategori</label>
-                            <select name="kategori_treatment[]" class="w-full bg-transparent border-none p-0 focus:ring-0 text-sm">
-                                <option value="Deep Clean">Deep Clean</option>
-                                <option value="Fast Clean">Fast Clean</option>
-                                <option value="Repaint">Repaint</option>
-                            </select>
-                        </div>
-                        
-                        <div class="bg-gray-200 rounded-xl p-3">
-                            <label class="block text-xs text-gray-500 font-bold mb-1">Tgl Keluar</label>
-                            <input type="date" name="tanggal_keluar[]" class="w-full bg-transparent border-none p-0 focus:ring-0 text-sm">
-                        </div>
-                        
-                        <div class="bg-gray-200 rounded-xl p-3">
-                            <label class="block text-xs text-gray-500 font-bold mb-1">Harga</label>
-                            <input type="number" name="harga[]" class="w-full bg-transparent border-none p-0 focus:ring-0 text-sm" placeholder="0">
-                        </div>
-                        
-                        <div class="bg-gray-200 rounded-xl p-3">
-                            <label class="block text-xs text-gray-500 font-bold mb-1">Catatan</label>
-                            <input type="text" name="catatan[]" class="w-full bg-transparent border-none p-0 focus:ring-0 text-sm" placeholder="...">
-                        </div>
-                    </div>
-
-                </div>
-                <div class="bg-gray-200 rounded-xl p-4">
-                    <label class="block text-xs text-gray-500 font-bold mb-1">Pembayaran</label>
-                    <input type="text" name="pembayaran" class="w-full bg-transparent border-none p-0 focus:ring-0 text-gray-800">
+                    <input type="text" name="nama_customer" 
+                           value="{{ $customer->nama ?? '' }}" 
+                           class="w-full bg-transparent border-none p-0 focus:ring-0 text-gray-800 font-semibold" 
+                           placeholder="Masukkan Nama">
                 </div>
 
                 <div class="bg-gray-200 rounded-xl p-4">
-                    <label class="block text-xs text-gray-500 font-bold mb-1">Tipe Customer</label>
-                    <input type="text" readonly value="{{ $status }}" class="w-full bg-transparent border-none p-0 focus:ring-0 text-gray-800">
+                    <label class="block text-xs text-gray-500 font-bold mb-1">No HP / WhatsApp</label>
+                    <input type="text" name="no_hp" value="{{ $no_hp }}" readonly class="w-full bg-transparent border-none p-0 focus:ring-0 text-gray-800 font-mono">
                 </div>
 
-                <div class="bg-gray-200 rounded-xl p-4 md:w-1/2">
-                    <label class="block text-xs text-gray-500 font-bold mb-1">Tau Tempat ini Dari...</label>
-                    <select name="sumber_info" class="w-full bg-transparent border-none p-0 focus:ring-0 text-gray-800">
-                        <option>Instagram</option>
-                        <option>Teman</option>
-                        <option>Google Maps</option>
-                    </select>
+                <div class="bg-gray-200 rounded-xl p-4 col-span-1 md:col-span-2">
+                    <label class="block text-xs text-gray-500 font-bold mb-1">Alamat</label>
+                    <input type="text" name="alamat" 
+                           value="{{ $customer->alamat ?? '' }}" 
+                           class="w-full bg-transparent border-none p-0 focus:ring-0 text-gray-800">
                 </div>
             </div>
 
             <div class="flex justify-end space-x-4 mt-12">
-                <button type="button" class="bg-[#3b66ff] text-white px-12 py-3 rounded-xl font-bold hover:bg-blue-700 shadow-lg">MEMBER</button>
-                <button type="submit" class="bg-[#3b66ff] text-white px-12 py-3 rounded-xl font-bold hover:bg-blue-700 shadow-lg">INPUT</button>
+                @if(!$is_member)
+                    <button type="button" onclick="openMemberModal()" class="bg-gray-800 text-white px-8 py-3 rounded-xl font-bold hover:bg-gray-900 shadow-lg flex items-center">
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path></svg>
+                        DAFTAR MEMBER
+                    </button>
+                @endif
+                
+                <button type="submit" class="bg-[#3b66ff] text-white px-12 py-3 rounded-xl font-bold hover:bg-blue-700 shadow-lg">
+                    INPUT ORDER
+                </button>
             </div>
         </form>
     </div>
-
-    <script>
-        function addItem() {
-            // Ambil elemen container dan counter
-            const container = document.getElementById('items-container');
-            const counterDisplay = document.getElementById('counter-display');
-            
-            // Ambil angka saat ini
-            let currentCount = parseInt(counterDisplay.innerText);
-
-            // Clone (copy) baris pertama yang ada di dalam container
-            // true berarti mengcopy semua anak elemen di dalamnya juga
-            const firstRow = container.querySelector('.item-row');
-            const newRow = firstRow.cloneNode(true);
-
-            // Kosongkan nilai input di baris baru agar bersih
-            const inputs = newRow.querySelectorAll('input');
-            inputs.forEach(input => {
-                input.value = ''; 
-            });
-
-            // Tambahkan baris baru ke bawah container
-            container.appendChild(newRow);
-
-            // Update angka display
-            counterDisplay.innerText = currentCount + 1;
-        }
-
-        function removeItem() {
-            const container = document.getElementById('items-container');
-            const counterDisplay = document.getElementById('counter-display');
-            let currentCount = parseInt(counterDisplay.innerText);
-
-            // Pastikan tidak menghapus jika hanya sisa 1 baris
-            if (currentCount > 1) {
-                container.removeChild(container.lastElementChild); // Hapus elemen terakhir
-                counterDisplay.innerText = currentCount - 1;
-            }
-        }
-    </script>
-</x-app-layout>
+    
+    </x-app-layout>
