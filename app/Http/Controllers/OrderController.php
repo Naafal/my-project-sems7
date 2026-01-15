@@ -141,6 +141,7 @@ class OrderController extends Controller
                     'nama_barang' => $items[$i],
                     'layanan' => $request->kategori_treatment[$i] ?? 'General',
                     'harga' => $hargaBersih,
+                    'estimasi_keluar' => $request->tanggal_keluar[$i] ?? null,
                     'status' => 'Proses',
                 ]);
             }
