@@ -58,6 +58,7 @@ class OrderController extends Controller
 
     public function store(Request $request)
     {
+        // 1. Validasi Input
         $request->validate([
             'nama_customer' => 'required',
             'no_hp' => 'required',
@@ -68,47 +69,34 @@ class OrderController extends Controller
         try {
             DB::beginTransaction();
 
+            // 2. Buat/Ambil Customer
             $customer = Customer::firstOrCreate(
                 ['no_hp' => $request->no_hp],
                 ['nama' => $request->nama_customer]
             );
 
+            // 3. Generate Invoice
             $count = Order::whereDate('created_at', today())->count() + 1;
             $invoice = 'INV-' . date('Ymd') . '-' . str_pad($count, 3, '0', STR_PAD_LEFT);
 
+            // 4. Hitung Total Harga
             $totalHarga = 0;
-            if(is_array($request->harga)){
-                 $totalHarga = array_sum(array_map(function($h) {
-                     return (int) preg_replace('/[^0-9]/', '', $h); 
-                 }, $request->harga));
-        // ... Loop Simpan Detail Item (Sama seperti sebelumnya) ...
-        $items = $request->item;
-        for ($i = 0; $i < count($items); $i++) {
-            if (!empty($items[$i])) {
-                $hargaRaw = $request->harga[$i] ?? 0;
-                $hargaBersih = (int) preg_replace('/[^0-9]/', '', $hargaRaw);
-
-                OrderDetail::create([
-                    'order_id' => $order->id,
-                    'nama_barang' => $items[$i],
-                    'layanan' => $request->kategori_treatment[$i] ?? 'General',
-                    'harga' => $hargaBersih,
-                    'estimasi_keluar' => $request->tanggal_keluar[$i] ?? null,
-                    'status' => 'Proses',
-                ]);
+            if (is_array($request->harga)) {
+                $totalHarga = array_sum(array_map(function ($h) {
+                    return (int) preg_replace('/[^0-9]/', '', $h);
+                }, $request->harga));
             }
 
-            // LOGIKA PEMBAYARAN BARU (LEBIH SEDERHANA & KUAT)
-            // Langsung ambil dari input karena View sudah memisahkan inputnya
+            // 5. Logika Status & Metode Pembayaran
             $statusPembayaran = $request->status_pembayaran ?? 'Belum Lunas';
             $metodePembayaran = $request->metode_pembayaran ?? 'Tunai';
-            
-            // Tentukan Paid Amount
+
+            // Bersihkan format rupiah dari input paid_amount
             $inputPaidAmount = $request->paid_amount ? (int) preg_replace('/[^0-9]/', '', $request->paid_amount) : 0;
             $jumlahBayar = 0;
 
             if ($statusPembayaran == 'Lunas') {
-                // Jika Lunas, anggap bayar full (entah user input manual atau default)
+                // Jika lunas, bayar full (atau sesuai input jika ada)
                 $jumlahBayar = ($inputPaidAmount > 0) ? $inputPaidAmount : $totalHarga;
             } elseif ($statusPembayaran == 'DP') {
                 // Jika DP, wajib pakai inputan user
@@ -116,9 +104,10 @@ class OrderController extends Controller
             } else {
                 // Belum Lunas
                 $jumlahBayar = 0;
-                $metodePembayaran = null; // Bisa dikosongkan jika belum bayar
+                $metodePembayaran = null; 
             }
 
+            // 6. Simpan Data Order Utama (Disini variabel $order DIBUAT)
             $order = Order::create([
                 'no_invoice' => $invoice,
                 'customer_id' => $customer->id,
@@ -134,34 +123,41 @@ class OrderController extends Controller
                 'kasir' => $request->cs ?? 'Admin',
             ]);
 
+            // 7. Simpan Detail Item (Looping SETELAH $order dibuat)
             $items = $request->item;
-            for ($i = 0; $i < count($items); $i++) {
-                if (!empty($items[$i])) {
-                    $hargaRaw = $request->harga[$i] ?? 0;
-                    $hargaBersih = (int) preg_replace('/[^0-9]/', '', $hargaRaw);
+            if (is_array($items)) {
+                for ($i = 0; $i < count($items); $i++) {
+                    if (!empty($items[$i])) {
+                        $hargaRaw = $request->harga[$i] ?? 0;
+                        $hargaBersih = (int) preg_replace('/[^0-9]/', '', $hargaRaw);
 
-                    OrderDetail::create([
-                        'order_id' => $order->id,
-                        'nama_barang' => $items[$i],
-                        'layanan' => $request->kategori_treatment[$i] ?? 'General',
-                        'harga' => $hargaBersih,
-                        'tanggal_keluar' => $request->tanggal_keluar[$i] ?? null,
-                        'catatan' => $request->catatan[$i] ?? null,
-                        'status' => 'Proses',
-                    ]);
+                        OrderDetail::create([
+                            'order_id' => $order->id, // Sekarang aman, $order sudah ada
+                            'nama_barang' => $items[$i],
+                            'layanan' => $request->kategori_treatment[$i] ?? 'General',
+                            'harga' => $hargaBersih,
+                            'estimasi_keluar' => $request->tanggal_keluar[$i] ?? null, // Perbaiki nama field (estimasi_keluar vs tanggal_keluar)
+                            'catatan' => $request->catatan[$i] ?? null,
+                            'status' => 'Proses',
+                        ]);
+                    }
                 }
             }
 
+            // 8. Update Poin Member (Jika ada)
             if ($customer->member) {
                 $customer->member->increment('total_transaksi', $totalHarga);
+                // Hitung poin: kelipatan 50.000 dapat 1 poin (contoh)
                 $poinBaru = floor($totalHarga / 50000);
-                $customer->member->increment('poin', $poinBaru);
+                if ($poinBaru > 0) {
+                    $customer->member->increment('poin', $poinBaru);
+                }
             }
 
             DB::commit();
             return redirect()->route('pesanan.index')->with('success', 'Order berhasil! ' . $invoice);
 
-        } catch (\Exception $e) {
+        } catch (\Exception $e) { // <--- Masalah utama tadi disini (kurung kurawal penutup try hilang)
             DB::rollBack();
             return back()->with('error', 'Gagal: ' . $e->getMessage())->withInput();
         }
