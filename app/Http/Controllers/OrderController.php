@@ -7,12 +7,14 @@ use App\Models\Order;
 use App\Models\OrderDetail;
 use App\Models\Customer;
 use App\Models\Member;
+use App\Models\Treatment; // Pastikan Model ini ada
 use Illuminate\Support\Facades\DB;
 
 class OrderController extends Controller
 {
     /**
      * 1. HALAMAN MANAJEMEN PESANAN (INDEX)
+     * Menampilkan daftar order dengan Relasi Customer & Details
      */
     public function index(Request $request)
     {
@@ -81,10 +83,14 @@ class OrderController extends Controller
 
     /**
      * 2. CEK STATUS CUSTOMER SEBELUM ORDER
+     * (New / Repeat / Member)
      */
     public function check(Request $request)
     {
         $customer = Customer::where('no_hp', $request->no_hp)->with('member')->first();
+        
+        // Ambil data treatment untuk dropdown
+        $treatments = Treatment::orderBy('nama_treatment', 'asc')->get(); 
 
         $data = [
             'no_hp' => $request->no_hp,
@@ -92,13 +98,14 @@ class OrderController extends Controller
             'status' => 'New Customer',
             'color' => 'text-blue-500 bg-blue-50 border-blue-200',
             'is_member' => false,
-            'poin' => 0
+            'poin' => 0,
+            'treatments' => $treatments // Kirim ke view
         ];
 
         if ($customer) {
             $data['customer'] = $customer;
             $data['no_hp'] = $customer->no_hp;
-
+            
             if ($customer->member) {
                 $data['status'] = 'MEMBER';
                 $data['color'] = 'text-pink-600 bg-pink-100 border-pink-200';
@@ -116,40 +123,63 @@ class OrderController extends Controller
 
     /**
      * 3. SIMPAN ORDER (CORE FUNCTION)
+     * Menyimpan ke 3 Tabel sekaligus (Customers -> Orders -> OrderDetails)
      */
     public function store(Request $request)
-    {
-        $request->validate([
-            'nama_customer' => 'required',
-            'no_hp' => 'required',
-            'item.*' => 'required',
-            'harga.*' => 'required',
-        ]);
+{
+    // 1. VALIDASI DIHIDUPKAN KEMBALI
+    $request->validate([
+        'nama_customer' => 'required',
+        'no_hp' => 'required',
+        'item.*' => 'required',
+        'harga.*' => 'required', // Hapus 'numeric' agar tidak error kena "Rp"
+    ]);
 
         try {
             DB::beginTransaction();
 
-            $customer = Customer::firstOrCreate(
-                ['no_hp' => $request->no_hp],
-                ['nama' => $request->nama_customer]
-            );
+        // ... Simpan Customer (Sama seperti sebelumnya) ...
+        $customer = Customer::firstOrCreate(
+            ['no_hp' => $request->no_hp],
+            ['nama' => $request->nama_customer]
+        );
 
-            $count = Order::whereDate('created_at', today())->count() + 1;
-            $invoice = 'INV-' . date('Ymd') . '-' . str_pad($count, 3, '0', STR_PAD_LEFT);
+        // ... Siapkan Invoice & Harga (Sama seperti sebelumnya) ...
+        $count = Order::whereDate('created_at', today())->count() + 1;
+        $invoice = 'INV-' . date('Ymd') . '-' . str_pad($count, 3, '0', STR_PAD_LEFT);
 
+            // 4. Hitung Total Harga
             $totalHarga = 0;
-            if(is_array($request->harga)){
-                 $totalHarga = array_sum(array_map(function($h) {
-                     return (int) preg_replace('/[^0-9]/', '', $h); 
-                 }, $request->harga));
+            if (is_array($request->harga)) {
+                $totalHarga = array_sum(array_map(function ($h) {
+                    return (int) preg_replace('/[^0-9]/', '', $h);
+                }, $request->harga));
             }
 
+            // 5. Logika Pembayaran
+            $statusPembayaran = $request->status_pembayaran ?? 'Belum Lunas';
+            $metodePembayaran = $request->metode_pembayaran ?? 'Tunai';
+            $inputPaidAmount = $request->paid_amount ? (int) preg_replace('/[^0-9]/', '', $request->paid_amount) : 0;
+            $jumlahBayar = 0;
+
+            if ($statusPembayaran == 'Lunas') {
+                $jumlahBayar = ($inputPaidAmount > 0) ? $inputPaidAmount : $totalHarga;
+            } elseif ($statusPembayaran == 'DP') {
+                $jumlahBayar = $inputPaidAmount;
+            } else {
+                $jumlahBayar = 0;
+                $metodePembayaran = null; 
+            }
+
+            // 6. Simpan Order Utama
             $order = Order::create([
                 'no_invoice' => $invoice,
                 'customer_id' => $customer->id,
                 'tgl_masuk' => now(),
                 'total_harga' => $totalHarga,
-                'status_pembayaran' => $request->pembayaran,
+                'paid_amount' => $jumlahBayar,
+                'metode_pembayaran' => $metodePembayaran,
+                'status_pembayaran' => $statusPembayaran,
                 'status_order' => 'Proses',
                 'tipe_customer' => $request->tipe_customer,
                 'sumber_info' => $request->sumber_info,
@@ -157,33 +187,65 @@ class OrderController extends Controller
                 'kasir' => $request->cs ?? 'Admin',
             ]);
 
+            // 7. Simpan Detail Item
             $items = $request->item;
-            for ($i = 0; $i < count($items); $i++) {
-                if (!empty($items[$i])) {
-                    $hargaRaw = $request->harga[$i] ?? 0;
-                    $hargaBersih = (int) preg_replace('/[^0-9]/', '', $hargaRaw);
+            if (is_array($items)) {
+                for ($i = 0; $i < count($items); $i++) {
+                    if (!empty($items[$i])) {
+                        $hargaRaw = $request->harga[$i] ?? 0;
+                        $hargaBersih = (int) preg_replace('/[^0-9]/', '', $hargaRaw);
 
-                    OrderDetail::create([
-                        'order_id' => $order->id,
-                        'nama_barang' => $items[$i],
-                        'layanan' => $request->kategori_treatment[$i] ?? 'General',
-                        'harga' => $hargaBersih,
-                        'estimasi_keluar' => $request->tanggal_keluar[$i] ?? null, // Fitur Baru
-                        'status' => 'Proses',
-                    ]);
+                        OrderDetail::create([
+                            'order_id' => $order->id,
+                            'nama_barang' => $items[$i],
+                            'layanan' => $request->kategori_treatment[$i] ?? 'General',
+                            'harga' => $hargaBersih,
+                            'estimasi_keluar' => $request->tanggal_keluar[$i] ?? null,
+                            'catatan' => $request->catatan[$i] ?? null,
+                            'status' => 'Proses',
+                        ]);
+                    }
                 }
             }
 
+            // 8. Update Poin Member
             if ($customer->member) {
                 $customer->member->increment('total_transaksi', $totalHarga);
                 $poinBaru = floor($totalHarga / 50000);
-                $customer->member->increment('poin', $poinBaru);
+                if ($poinBaru > 0) {
+                    $customer->member->increment('poin', $poinBaru);
+                }
             }
 
+            DB::commit();
+            return redirect()->route('pesanan.index')->with('success', 'Order berhasil! ' . $invoice);
             DB::commit();
 
             return redirect()->route('pesanan.index')->with('success', 'Order berhasil diinput!');
 
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()->with('error', 'Gagal: ' . $e->getMessage())->withInput();
+        }
+    }
+
+    // --- FUNGSI UPDATE STATUS PER ITEM ---
+    public function updateDetail(Request $request, $id) 
+    {
+        $detail = OrderDetail::findOrFail($id);
+        if ($request->has('status')) {
+            $detail->status = $request->status;
+            $detail->save();
+        }
+        
+        // Cek apakah semua item sudah selesai
+        $order = $detail->order;
+        $itemBelumSelesai = $order->details()->whereNotIn('status', ['Selesai', 'Diambil'])->count();
+        $order->status_order = ($itemBelumSelesai == 0) ? 'Selesai' : 'Proses';
+        $order->save();
+        
+        return back()->with('success', 'Status berhasil diperbarui');
+    }
         } catch (\Exception $e) {
             DB::rollBack();
             return back()->with('error', 'Gagal menyimpan: ' . $e->getMessage())->withInput();
@@ -229,6 +291,35 @@ class OrderController extends Controller
         return back()->with('success', 'Status berhasil diperbarui');
     }
 
+    // --- FUNGSI TOGGLE WA ---
+    public function toggleWa($id, $type) 
+    {
+        $order = Order::findOrFail($id);
+        if ($type == 1) $order->wa_sent_1 = !$order->wa_sent_1;
+        elseif ($type == 2) $order->wa_sent_2 = !$order->wa_sent_2;
+        $order->save();
+        return back();
+    }
+
+    // --- FUNGSI AJAX CEK CUSTOMER ---
+    public function checkCustomer(Request $request) 
+    {
+        $customer = Customer::with('member')->where('no_hp', $request->no_hp)->first();
+        
+        if ($customer) {
+            $poin = $customer->member ? $customer->member->poin : 0;
+            return response()->json([
+                'found' => true,
+                'nama' => $customer->nama,
+                'tipe' => $customer->member ? 'Member' : 'Repeat Order',
+                'poin' => $poin,
+                'target' => 8, 
+                'bisa_claim' => $poin >= 8,
+                'member_id' => $customer->member ? $customer->member->id : null,
+            ]);
+        }
+        return response()->json(['found' => false]);
+    }
     public function checkCustomer(Request $request)
     {
         $customer = \App\Models\Customer::with('member')
