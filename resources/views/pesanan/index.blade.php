@@ -199,7 +199,9 @@
                     <form action="{{ route('pesanan.toggle-wa', ['id' => $order->id, 'type' => 1]) }}" method="POST">
                         @csrf
                         <button type="submit" class="rounded-full p-2 transition shadow-sm border {{ $order->wa_sent_1 ? 'bg-green-500 text-white border-green-600 hover:bg-green-600' : 'bg-gray-200 text-gray-500 border-gray-300 hover:bg-gray-300' }}">
-                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path fill-rule="evenodd" d="M1.5 4.5a3 3 0 013-3h1.372c.86 0 1.61.586 1.819 1.42l1.105 4.423a1.875 1.875 0 01-.694 1.955l-1.293.97c-.135.101-.164.249-.126.352a11.285 11.285 0 006.697 6.697c.103.038.25.009.352-.126l.97-1.293a1.875 1.875 0 011.955-.694l4.423 1.105c.834.209 1.42.96 1.42 1.82V19.5a3 3 0 01-3 3h-2.25C8.552 22.5 1.5 15.448 1.5 4.5V4.5z" clip-rule="evenodd" /></svg>
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
+                            </svg>
                         </button>
                     </form>
                     {{-- EDIT --}}
@@ -210,7 +212,7 @@
                     <form action="{{ route('pesanan.toggle-wa', ['id' => $order->id, 'type' => 2]) }}" method="POST">
                         @csrf
                         <button type="submit" class="rounded-full p-2 transition shadow-sm border {{ $order->wa_sent_2 ? 'bg-green-500 text-white border-green-600 hover:bg-green-600' : 'bg-gray-200 text-gray-500 border-gray-300 hover:bg-gray-300' }}">
-                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path fill-rule="evenodd" d="M1.5 4.5a3 3 0 013-3h1.372c.86 0 1.61.586 1.819 1.42l1.105 4.423a1.875 1.875 0 01-.694 1.955l-1.293.97c-.135.101-.164.249-.126.352a11.285 11.285 0 006.697 6.697c.103.038.25.009.352-.126l.97-1.293a1.875 1.875 0 011.955-.694l4.423 1.105c.834.209 1.42.96 1.42 1.82V19.5a3 3 0 01-3 3h-2.25C8.552 22.5 1.5 15.448 1.5 4.5V4.5z" clip-rule="evenodd" /></svg>
+                            <img src="{{ asset('assets/icons/pickup.png') }}" alt="Pick Up Icon" class="w-5 h-5 object-contain">
                         </button>
                     </form>
                 </div>
@@ -260,7 +262,9 @@
                             <form action="{{ route('pesanan.toggle-wa', ['id' => $order->id, 'type' => 1]) }}" method="POST">
                                 @csrf
                                 <button type="submit" class="p-2 rounded-full border {{ $order->wa_sent_1 ? 'bg-green-500 text-white border-green-600' : 'bg-gray-100 text-gray-400 border-gray-200' }}">
-                                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path fill-rule="evenodd" d="M1.5 4.5a3 3 0 013-3h1.372c.86 0 1.61.586 1.819 1.42l1.105 4.423a1.875 1.875 0 01-.694 1.955l-1.293.97c-.135.101-.164.249-.126.352a11.285 11.285 0 006.697 6.697c.103.038.25.009.352-.126l.97-1.293a1.875 1.875 0 011.955-.694l4.423 1.105c.834.209 1.42.96 1.42 1.82V19.5a3 3 0 01-3 3h-2.25C8.552 22.5 1.5 15.448 1.5 4.5V4.5z" clip-rule="evenodd" /></svg>
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
+                                    </svg>
                                 </button>
                             </form>
 
@@ -273,7 +277,7 @@
                             <form action="{{ route('pesanan.toggle-wa', ['id' => $order->id, 'type' => 2]) }}" method="POST">
                                 @csrf
                                 <button type="submit" class="p-2 rounded-full border {{ $order->wa_sent_2 ? 'bg-green-500 text-white border-green-600' : 'bg-gray-100 text-gray-400 border-gray-200' }}">
-                                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path fill-rule="evenodd" d="M1.5 4.5a3 3 0 013-3h1.372c.86 0 1.61.586 1.819 1.42l1.105 4.423a1.875 1.875 0 01-.694 1.955l-1.293.97c-.135.101-.164.249-.126.352a11.285 11.285 0 006.697 6.697c.103.038.25.009.352-.126l.97-1.293a1.875 1.875 0 011.955-.694l4.423 1.105c.834.209 1.42.96 1.42 1.82V19.5a3 3 0 01-3 3h-2.25C8.552 22.5 1.5 15.448 1.5 4.5V4.5z" clip-rule="evenodd" /></svg>
+                                    <img src="{{ asset('assets/icons/pickup.png') }}" alt="Pick Up Icon" class="w-5 h-5 object-contain">
                                 </button>
                             </form>
                         </div>
