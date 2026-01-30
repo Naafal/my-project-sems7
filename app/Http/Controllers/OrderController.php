@@ -14,7 +14,6 @@ class OrderController extends Controller
 {
     /**
      * 1. HALAMAN MANAJEMEN PESANAN (INDEX)
-     * Menampilkan daftar order dengan Relasi Customer & Details
      */
     public function index(Request $request)
     {
@@ -41,36 +40,35 @@ class OrderController extends Controller
     public function show($id)
     {
         $order = Order::with(['customer', 'details'])->findOrFail($id);
-        
-        // TAMBAHAN: Ambil data treatment untuk ditampilkan di modal klaim reward
         $treatments = Treatment::orderBy('nama_treatment', 'asc')->get();
 
-        // Tambahkan 'treatments' ke dalam fungsi compact()
         return view('pesanan.show', compact('order', 'treatments'));
     }
 
     /**
      * UPDATE DATA UTAMA & DETAIL PESANAN
+     * (Bagian ini diperbarui untuk sinkronisasi status otomatis)
      */
     public function update(Request $request, $id)
     {
         $request->validate([
             'nama_customer' => 'required|string',
             'status' => 'required|string',
-            'details' => 'array' // Menerima data rincian pesanan
+            'details' => 'array' 
         ]);
 
         try {
             DB::beginTransaction();
             
             $order = Order::findOrFail($id);
+            $targetStatus = $request->status; // Status yang dipilih user di dropdown utama
             
             // 1. Update Data Utama Order
-            $order->status_order = $request->status;
+            $order->status_order = $targetStatus;
             $order->catatan = $request->catatan; 
             
-            // FITUR BARU: Simpan data CS Keluar dari dropdown
-            $order->kasir_keluar = $request->kasir_keluar; 
+            // Gunakan null coalescing operator (?? null) agar aman jika field kosong
+            $order->kasir_keluar = $request->kasir_keluar ?? null;
             
             // 2. Update Nama Customer
             if ($order->customer) {
@@ -78,34 +76,59 @@ class OrderController extends Controller
                 $order->customer->save();
             }
 
-            // 3. Update Rincian Layanan ke Database
+            // 3. Update Rincian Layanan & Sinkronisasi Status
             if ($request->has('details')) {
                 $totalHargaBaru = 0;
 
                 foreach ($request->details as $detailId => $data) {
                     $detail = OrderDetail::find($detailId);
                     
-                    // Pastikan detail ada dan milik order yang benar
                     if ($detail && $detail->order_id == $order->id) {
+                        // Update Data Barang/Layanan
                         $detail->nama_barang = $data['nama_barang'] ?? $detail->nama_barang;
                         $detail->layanan = $data['layanan'] ?? $detail->layanan;
                         $detail->estimasi_keluar = $data['estimasi_keluar'] ?? $detail->estimasi_keluar;
-                        $detail->status = $data['status'] ?? $detail->status;
                         $detail->harga = (int) ($data['harga'] ?? $detail->harga);
-                        $detail->save();
 
-                        $totalHargaBaru += $detail->harga; // Hitung ulang total
+                        // === LOGIKA PRIORITAS STATUS ===
+                        // A. Jika Status Utama di-set "Selesai" atau "Diambil", paksa semua item ikut status utama.
+                        if (in_array($targetStatus, ['Selesai', 'Diambil'])) {
+                            $detail->status = $targetStatus;
+                        } 
+                        // B. Jika Status Utama "Proses" atau lainnya, ikuti status per-item dari input form
+                        else {
+                            $detail->status = $data['status'] ?? $detail->status;
+                        }
+                        
+                        $detail->save();
+                        $totalHargaBaru += $detail->harga; 
                     }
                 }
 
-                // Simpan total harga yang baru
+                // Simpan total harga baru
                 $order->total_harga = $totalHargaBaru;
+
+                // === LOGIKA PENGECEKAN TERBALIK (Bottom-Up) ===
+                // Jika user TIDAK memilih "Selesai/Diambil" (misal memilih "Proses"), 
+                // tapi ternyata semua item sudah "Selesai", maka otomatis set Status Utama jadi "Selesai".
+                if (!in_array($targetStatus, ['Selesai', 'Diambil', 'Batal'])) {
+                    $itemBelumSelesai = $order->details()
+                        ->whereNotIn('status', ['Selesai', 'Diambil'])
+                        ->count();
+
+                    if ($itemBelumSelesai == 0) {
+                        $order->status_order = 'Selesai';
+                    } else {
+                        // Jika masih ada item yang belum selesai, pastikan status order tetap Proses
+                        $order->status_order = 'Proses';
+                    }
+                }
             }
 
             $order->save();
 
             DB::commit();
-            return back()->with('success', 'Rincian pesanan berhasil diperbarui di database.');
+            return back()->with('success', 'Status dan rincian pesanan berhasil diperbarui.');
 
         } catch (\Exception $e) {
             DB::rollBack();
@@ -119,9 +142,6 @@ class OrderController extends Controller
     public function check(Request $request)
     {
         $customer = Customer::where('no_hp', $request->no_hp)->with('member')->first();
-        
-        // Ambil data treatment untuk dropdown (jika diperlukan untuk referensi)
-        // Walaupun inputnya manual, variable ini tetap dikirim agar tidak error di view jika ada foreach
         $treatments = Treatment::orderBy('nama_treatment', 'asc')->get(); 
 
         $data = [
@@ -175,7 +195,6 @@ class OrderController extends Controller
                 ['nama' => $request->nama_customer]
             );
 
-            // Update nama jika berubah
             if($customer->nama !== $request->nama_customer) {
                 $customer->update(['nama' => $request->nama_customer]);
             }
@@ -196,7 +215,6 @@ class OrderController extends Controller
             $statusPembayaran = $request->status_pembayaran ?? 'Belum Lunas';
             $metodePembayaran = $request->metode_pembayaran ?? 'Tunai';
             
-            // Bersihkan format Rupiah dari input paid_amount
             $inputPaidAmount = $request->paid_amount ? (int) preg_replace('/[^0-9]/', '', $request->paid_amount) : 0;
             
             $jumlahBayar = 0;
@@ -276,7 +294,6 @@ class OrderController extends Controller
             $detail->save();
         }
 
-        // Cek apakah semua item dalam order ini sudah selesai
         $order = $detail->order;
         $itemBelumSelesai = $order->details()
             ->whereNotIn('status', ['Selesai', 'Diambil'])

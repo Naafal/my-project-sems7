@@ -111,9 +111,10 @@
                             <td class="px-6 py-4 whitespace-nowrap text-center">
                                 @php
                                     $statusClasses = match($order->status_order) {
-                                        'Selesai' => 'bg-green-50 text-green-700 border-green-200',
-                                        'Proses' => 'bg-yellow-50 text-yellow-700 border-yellow-200',
-                                        'Batal' => 'bg-red-50 text-red-700 border-red-200',
+                                        'Selesai' => 'bg-green-50 text-green-700 border-green-200', // Hijau
+                                        'Proses' => 'bg-yellow-50 text-yellow-700 border-yellow-200', // Kuning
+                                        'Diambil' => 'bg-blue-50 text-blue-700 border-blue-200', // [UPDATE] Biru
+                                        'Batal' => 'bg-red-50 text-red-700 border-red-200', // Merah
                                         default => 'bg-gray-100 text-gray-600 border-gray-200',
                                     };
                                 @endphp
@@ -174,7 +175,17 @@
                             <h2 class="font-bold text-gray-800">{{ $header->nama_customer }}</h2>
                             <p class="text-xs text-gray-500">{{ $header->created_at->format('d M Y, H:i') }}</p>
                         </div>
-                        <span class="px-3 py-1 text-xs font-bold rounded-full border {{ $order->status_order == 'Selesai' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-yellow-50 text-yellow-700 border-yellow-200' }}">
+                        {{-- [UPDATE] Logika Warna Badge di Mobile --}}
+                        @php
+                            $mobileStatusClass = match($order->status_order) {
+                                'Selesai' => 'bg-green-50 text-green-700 border-green-200',
+                                'Proses' => 'bg-yellow-50 text-yellow-700 border-yellow-200',
+                                'Diambil' => 'bg-blue-50 text-blue-700 border-blue-200',
+                                'Batal' => 'bg-red-50 text-red-700 border-red-200',
+                                default => 'bg-gray-100 text-gray-600 border-gray-200',
+                            };
+                        @endphp
+                        <span class="px-3 py-1 text-xs font-bold rounded-full border {{ $mobileStatusClass }}">
                             {{ $order->status_order }}
                         </span>
                     </div>
@@ -295,10 +306,12 @@
                                         <option value="Pending">Pending</option>
                                         <option value="Proses">Proses</option>
                                         <option value="Selesai">Selesai</option>
+                                        {{-- TAMBAHAN: Opsi Diambil --}}
+                                        <option value="Diambil">Diambil</option>
                                         <option value="Batal">Batal</option>
                                     </select>
                                 </div>
-                            </div>
+</div>
 
                             {{-- Rincian Pesanan (Bisa Di-edit Langsung) --}}
                             <div class="space-y-2 col-span-2 pt-2">
